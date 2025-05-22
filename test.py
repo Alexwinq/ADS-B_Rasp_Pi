@@ -1,1 +1,1 @@
-print("Hello from Raspberry Pi!")
+print("ayo world what the fuck")
