@@ -1,29 +1,17 @@
-import json
-import time
-from pathlib import Path
+import subprocess
 
-# Path to dump1090 JSON output
-json_path = Path("/run/dump1090-fa/aircraft.json")
+# Full path to the dump1090-fa binary
+DUMP1090_PATH = "/usr/bin/dump1090-fa"
 
-while True:
-    if not json_path.exists():
-        print("dump1090 JSON file not found. Is dump1090 running?")
-        break
+# Command to run with interactive and net options
+command = [DUMP1090_PATH, "--interactive", "--net"]
 
-    try:
-        with open(json_path, 'r') as f:
-            data = json.load(f)
-
-        print(f"\n{len(data['aircraft'])} aircraft detected:")
-        for ac in data['aircraft']:
-            hex_id = ac.get("hex", "N/A")
-            lat = ac.get("lat", "N/A")
-            lon = ac.get("lon", "N/A")
-            alt = ac.get("alt_baro", "N/A")
-            callsign = ac.get("flight", "N/A")
-            print(f" - {callsign} ({hex_id}) at {alt} ft over ({lat}, {lon})")
-
-    except json.JSONDecodeError:
-        print("Waiting for valid data...")
-
-    time.sleep(1)
+try:
+    print("Starting dump1090-fa in interactive mode...")
+    subprocess.run(command, check=True)
+except FileNotFoundError:
+    print("dump1090-fa not found at the specified path.")
+except subprocess.CalledProcessError as e:
+    print(f"dump1090-fa exited with error code: {e.returncode}")
+except KeyboardInterrupt:
+    print("\nStopped by user.")
