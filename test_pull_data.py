@@ -2,7 +2,9 @@ import subprocess
 import time
 
 aircraft_list = []
+last_report_time = time.time()
 
+# Start dump1090-fa as a subprocess
 process = subprocess.Popen(
     ["dump1090-fa", "--interactive"],
     stdout=subprocess.PIPE,
@@ -11,35 +13,49 @@ process = subprocess.Popen(
     bufsize=1
 )
 
-for line in process.stdout:
-    if line.startswith("Hex") or line.strip() == "":
-        continue  # Skip header and blank lines
+print("Started dump1090-fa... listening for aircraft.")
 
-    parts = line.split()
-    if len(parts) >= 11:
-        aircraft = {
-            "hex": parts[0],
-            "flight": parts[3],
-            "altitude": parts[4],
-            "speed": parts[5],
-            "heading": parts[6],
-            "lat": parts[7],
-            "lon": parts[8],
-            "timestamp": time.time()
-        }
+try:
+    for line in process.stdout:
+        line = line.strip()
 
-        # Only save if coordinates are valid
-        try:
-            lat = float(aircraft["lat"])
-            lon = float(aircraft["lon"])
+        # Skip empty lines or headers
+        if not line or line.startswith("Hex"):
+            continue
+
+        parts = line.split()
+        if len(parts) >= 11:
+            try:
+                lat = float(parts[7])
+                lon = float(parts[8])
+            except ValueError:
+                continue  # Skip aircraft with invalid position
+
+            aircraft = {
+                "hex": parts[0],
+                "flight": parts[3],
+                "altitude": parts[4],
+                "speed": parts[5],
+                "heading": parts[6],
+                "lat": lat,
+                "lon": lon,
+                "timestamp": time.time()
+            }
+
             aircraft_list.append(aircraft)
-        except ValueError:
-            pass
 
-    # You could refresh every 10 seconds
-    if time.time() - aircraft_list[0]["timestamp"] > 10:
-        # Save to file, or update a radar screen
-        print(f"Tracked {len(aircraft_list)} aircraft:")
-        for ac in aircraft_list:
-            print(f"{ac['flight']} at {ac['lat']}, {ac['lon']}")
-        aircraft_list.clear()
+        # Every 10 seconds, print and clear the list
+        if time.time() - last_report_time >= 10:
+            last_report_time = time.time()
+
+            if aircraft_list:
+                print(f"\n[Update @ {time.strftime('%H:%M:%S')}] Tracked {len(aircraft_list)} aircraft:")
+                for ac in aircraft_list:
+                    print(f"  {ac['flight']} | Alt: {ac['altitude']} | Lat: {ac['lat']} | Lon: {ac['lon']}")
+                aircraft_list.clear()
+            else:
+                print(f"\n[Update @ {time.strftime('%H:%M:%S')}] No aircraft with valid positions detected.")
+
+except KeyboardInterrupt:
+    print("\nInterrupted by user. Exiting.")
+    process.terminate()
