@@ -2,7 +2,9 @@ import json
 import time
 import os
 
-AIRCRAFT_FILE = "/home/alex/dump1090-json/aircraft.json"
+#AIRCRAFT_FILE = "/home/alex/dump1090-json/aircraft.json"
+AIRCRAFT_FILE = "/run/dump1090-fa/aircraft.json"
+
 
 # Optional: map hex to tail numbers
 hex_to_tail = {
