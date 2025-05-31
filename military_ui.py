@@ -22,8 +22,8 @@ BLACK = get_color_from_hex("#000000")
 class InitScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.dot_count = 1
-        self.visible = True
+        self.dot_index = 0
+        self.dot_sequence = [".", "..", "...", "...."]
 
         self.label = Label(
             text="Initializing.",
@@ -39,18 +39,18 @@ class InitScreen(Screen):
         self.layout.add_widget(self.label)
         self.add_widget(self.layout)
 
-        Clock.schedule_interval(self.animate_text, 0.5)  # animate dots
-        Clock.schedule_interval(self.blink_text, 1.0)    # blink effect
-        Clock.schedule_once(self.goto_main_screen, 8)    # transition after 8s
+        # Animate dots every 0.5s
+        Clock.schedule_interval(self.animate_dots, 0.5)
+        # Move to next screen after 8 seconds
+        Clock.schedule_once(self.goto_main_screen, 8)
 
-    def animate_text(self, dt):
-        dots = "." * self.dot_count
+    def animate_dots(self, dt):
+        dots = self.dot_sequence[self.dot_index]
         self.label.text = f"Initializing{dots}"
-        self.dot_count = (self.dot_count % 3) + 1
+        self.dot_index = (self.dot_index + 1) % len(self.dot_sequence)
 
-    def blink_text(self, dt):
-        self.visible = not self.visible
-        self.label.color = MILITARY_GREEN if self.visible else BLACK
+    def goto_main_screen(self, dt):
+        self.manager.current = 'main'
 
     def goto_main_screen(self, dt):
         self.manager.current = 'main'
