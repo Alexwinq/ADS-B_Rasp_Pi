@@ -12,6 +12,7 @@ from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.utils import get_color_from_hex
 from kivy.config import Config
+from kivy.uix.popup import Popup
 
 # CONFIG
 Config.set('graphics', 'fullscreen', 'auto')
@@ -136,8 +137,19 @@ class MainScreen(Screen):
             self.manager.scanner_started = True
             threading.Thread(target=save_aircraft_to_json, daemon=True).start()
 
+        # Delay and check for aircraft data
+        Clock.schedule_once(self.check_for_aircraft, 2)
+
+    def check_for_aircraft(self, dt):
         self.manager.load_aircraft_screens()
-        self.manager.current = "aircraft_0"
+        if "aircraft_0" in self.manager.screen_names:
+            self.manager.current = "aircraft_0"
+        else:
+            # Show popup if no aircraft found yet
+            popup = Popup(title="No Aircraft Found",
+                          content=Label(text="No aircraft with position data detected yet.\nTry again in a few seconds."),
+                          size_hint=(0.7, 0.4))
+            popup.open()
 
 
 class AircraftScreen(Screen):
