@@ -9,6 +9,7 @@ from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.utils import get_color_from_hex
 from kivy.config import Config
+from kivy.uix.screenmanager import Screen
 
 # Fullscreen and hide mouse
 Config.set('graphics', 'fullscreen', 'auto')
@@ -79,6 +80,7 @@ class InitScreen(Screen):
 class AircraftScreen(Screen):
     def __init__(self, index, **kwargs):
         super().__init__(name=f"aircraft_{index}", **kwargs)
+
         self.index = index
 
         self.layout = BoxLayout(orientation='vertical', padding=50, spacing=20)
