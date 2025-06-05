@@ -1,109 +1,87 @@
-import json
 import os
-import threading
+import json
 import time
+import threading
 
 from kivy.app import App
-from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition, SlideTransition
+from kivy.clock import Clock
+from kivy.config import Config
+from kivy.core.text import LabelBase
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
-from kivy.clock import Clock
-from kivy.core.text import LabelBase
+from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition, SlideTransition
 from kivy.utils import get_color_from_hex
-from kivy.config import Config
-from kivy.uix.popup import Popup
 
-# CONFIG
-Config.set('graphics', 'fullscreen', 'auto')
+# Display settings
+Config.set('graphics', 'fullscreen', '1')
 Config.set('graphics', 'show_cursor', '0')
+Config.set('graphics', 'width', '800')
+Config.set('graphics', 'height', '480')
 
+# Register custom font
 LabelBase.register(name="Military", fn_regular="VT323-Regular.ttf")
 
+# Colors
 MILITARY_GREEN = get_color_from_hex("#00FF00")
 BLACK = get_color_from_hex("#000000")
 
-AIRCRAFT_FILE = "/run/dump1090-fa/aircraft.json"
-JSON_PATH = "json_output/aircraft_status.json"
+# JSON output path
+JSON_OUTPUT_FILE = "json_output/aircraft_data.json"
+os.makedirs("json_output", exist_ok=True)
+
+# Tail mapping (optional)
 hex_to_tail = {
     "a7302f": "N12345",
     "ab4af1": "N67890",
 }
 
-
+# Function to get aircraft with position
 def load_aircraft_with_position():
-    if not os.path.exists(AIRCRAFT_FILE):
+    if not os.path.exists("/run/dump1090-fa/aircraft.json"):
         return []
-    with open(AIRCRAFT_FILE, "r") as f:
+    with open("/run/dump1090-fa/aircraft.json", "r") as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError:
             return []
-    aircraft = data.get("aircraft", [])
-    positioned = [ac for ac in aircraft if "lat" in ac and "lon" in ac]
-    return positioned
+    return [ac for ac in data.get("aircraft", []) if "lat" in ac and "lon" in ac]
 
-
-def summarize_aircraft(ac):
-    hexid = ac.get("hex", "???")
-    lat = ac.get("lat", "N/A")
-    lon = ac.get("lon", "N/A")
-    alt = ac.get("alt_baro", "N/A")
-    speed = ac.get("gs", "N/A")
-    flight = ac.get("flight", "").strip()
-    seen = ac.get("seen", 0)
-    tail = hex_to_tail.get(hexid.lower(), "Unknown")
-
-    return {
-        "ICAO Hex": hexid,
-        "Tail #": tail,
-        "Flight": flight,
-        "Altitude (ft)": alt,
-        "Speed (knots)": speed,
-        "Latitude": lat,
-        "Longitude": lon,
-        "Last Seen (sec ago)": round(seen, 1)
-    }
-
-
+# Save aircraft details to json_output/aircraft_data.json every 5 seconds
 def save_aircraft_to_json():
-    os.makedirs(os.path.dirname(JSON_PATH), exist_ok=True)
-
     while True:
         aircraft = load_aircraft_with_position()
-        summarized = [summarize_aircraft(ac) for ac in aircraft]
-        data = {
-            "timestamp": time.time(),
-            "total_aircraft": len(summarized),
-            "aircraft": summarized
-        }
-        with open(JSON_PATH, "w") as f:
-            json.dump(data, f, indent=2)
+        enriched = []
+        for ac in aircraft:
+            hexid = ac.get("hex", "???")
+            enriched.append({
+                "hex": hexid,
+                "tail": hex_to_tail.get(hexid.lower(), "Unknown"),
+                "flight": ac.get("flight", "").strip(),
+                "altitude": ac.get("alt_baro", "N/A"),
+                "speed": ac.get("gs", "N/A"),
+                "lat": ac.get("lat", "N/A"),
+                "lon": ac.get("lon", "N/A"),
+                "seen": ac.get("seen", 0)
+            })
+        with open(JSON_OUTPUT_FILE, "w") as out:
+            json.dump(enriched, out, indent=2)
         time.sleep(5)
 
-
+# Screens
 class InitScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.dot_index = 0
         self.dot_sequence = [".", "..", "...", "...."]
-
-        self.label = Label(
-            text="Initializing.",
-            font_size=48,
-            color=MILITARY_GREEN,
-            font_name="Military",
-            halign="center",
-            valign="middle"
-        )
+        self.label = Label(text="Initializing.", font_size=48, color=MILITARY_GREEN,
+                           font_name="Military", halign="center", valign="middle")
         self.label.bind(size=self.label.setter('text_size'))
-
-        self.layout = BoxLayout(orientation='vertical', padding=50)
-        self.layout.add_widget(self.label)
-        self.add_widget(self.layout)
-
+        layout = BoxLayout(orientation='vertical', padding=50)
+        layout.add_widget(self.label)
+        self.add_widget(layout)
         Clock.schedule_interval(self.animate_dots, 0.5)
-        Clock.schedule_once(self.goto_main_screen, 4)
+        Clock.schedule_once(self.goto_main_screen, 8)
 
     def animate_dots(self, dt):
         dots = self.dot_sequence[self.dot_index]
@@ -112,7 +90,6 @@ class InitScreen(Screen):
 
     def goto_main_screen(self, dt):
         self.manager.current = 'main'
-
 
 class MainScreen(Screen):
     def __init__(self, **kwargs):
@@ -132,90 +109,101 @@ class MainScreen(Screen):
         self.add_widget(layout)
 
     def start_scanning(self, instance):
-        # Start aircraft scanner thread (only once)
         if not hasattr(self.manager, "scanner_started"):
             self.manager.scanner_started = True
             threading.Thread(target=save_aircraft_to_json, daemon=True).start()
+        self.manager.current = "scanning"
 
-        # Delay and check for aircraft data
-        Clock.schedule_once(self.check_for_aircraft, 2)
+class ScanningScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.dot_index = 0
+        self.dot_sequence = [".", "..", "...", "...."]
+        self.label = Label(text="Scanning for aircraft.", font_size=48,
+                           color=MILITARY_GREEN, font_name="Military",
+                           halign="center", valign="middle")
+        self.label.bind(size=self.label.setter('text_size'))
+        layout = BoxLayout(orientation='vertical', padding=50)
+        layout.add_widget(self.label)
+        self.add_widget(layout)
+
+    def on_enter(self):
+        self.dot_event = Clock.schedule_interval(self.animate_dots, 0.5)
+        self.check_event = Clock.schedule_interval(self.check_for_aircraft, 2)
+
+    def on_leave(self):
+        if hasattr(self, 'dot_event'):
+            self.dot_event.cancel()
+        if hasattr(self, 'check_event'):
+            self.check_event.cancel()
+
+    def animate_dots(self, dt):
+        dots = self.dot_sequence[self.dot_index]
+        self.label.text = f"Scanning for aircraft{dots}"
+        self.dot_index = (self.dot_index + 1) % len(self.dot_sequence)
 
     def check_for_aircraft(self, dt):
         self.manager.load_aircraft_screens()
         if "aircraft_0" in self.manager.screen_names:
             self.manager.current = "aircraft_0"
-        else:
-            # Show popup if no aircraft found yet
-            popup = Popup(title="No Aircraft Found",
-                          content=Label(text="No aircraft with position data detected yet.\nTry again in a few seconds."),
-                          size_hint=(0.7, 0.4))
-            popup.open()
-
 
 class AircraftScreen(Screen):
-    def __init__(self, ac_data, index, total, **kwargs):
-        super().__init__(**kwargs)
-        layout = BoxLayout(orientation='vertical', padding=50, spacing=15)
-
-        for key, value in ac_data.items():
-            layout.add_widget(Label(
-                text=f"{key}: {value}",
-                font_size=32,
-                color=MILITARY_GREEN,
-                font_name="Military"
-            ))
-
-        nav_layout = BoxLayout(size_hint_y=0.2, spacing=20, padding=20)
-        if index > 0:
-            prev_btn = Button(text="Previous", font_name="Military", font_size=24,
-                              background_color=BLACK, color=MILITARY_GREEN)
-            prev_btn.bind(on_press=lambda x: self.manager.transition_to(index - 1))
-            nav_layout.add_widget(prev_btn)
-
-        if index < total - 1:
-            next_btn = Button(text="Next", font_name="Military", font_size=24,
-                              background_color=BLACK, color=MILITARY_GREEN)
-            next_btn.bind(on_press=lambda x: self.manager.transition_to(index + 1))
-            nav_layout.add_widget(next_btn)
-
-        layout.add_widget(nav_layout)
+    def __init__(self, aircraft, index, **kwargs):
+        super().__init__(name=f"aircraft_{index}", **kwargs)
+        layout = BoxLayout(orientation='vertical', padding=30, spacing=10)
+        props = [
+            f"ICAO Hex : {aircraft['hex']}",
+            f"Tail #   : {aircraft['tail']}",
+            f"Flight   : {aircraft['flight']}",
+            f"Altitude : {aircraft['altitude']} ft",
+            f"Speed    : {aircraft['speed']} knots",
+            f"Lat/Lon  : {aircraft['lat']}, {aircraft['lon']}",
+            f"Last seen: {aircraft['seen']} sec ago"
+        ]
+        for line in props:
+            layout.add_widget(Label(text=line, font_name="Military",
+                                    color=MILITARY_GREEN, font_size=28, halign="left"))
         self.add_widget(layout)
-
 
 class MilitaryScreenManager(ScreenManager):
     def load_aircraft_screens(self):
+        # Remove old screens
         for screen in list(self.screen_names):
             if screen.startswith("aircraft_"):
                 self.remove_widget(self.get_screen(screen))
 
-        if not os.path.exists(JSON_PATH):
-            return
-
-        with open(JSON_PATH, "r") as f:
-            try:
-                data = json.load(f)
-                aircraft = data.get("aircraft", [])
-            except json.JSONDecodeError:
-                return
+        # Load aircraft from JSON
+        try:
+            with open(JSON_OUTPUT_FILE, "r") as f:
+                aircraft = json.load(f)
+        except:
+            aircraft = []
 
         for i, ac in enumerate(aircraft):
-            screen = AircraftScreen(ac_data=ac, index=i, total=len(aircraft), name=f"aircraft_{i}")
-            self.add_widget(screen)
+            self.add_widget(AircraftScreen(ac, i))
+
+        if aircraft:
+            self.transition_to(0)
 
     def transition_to(self, index):
         name = f"aircraft_{index}"
         if name in self.screen_names:
             self.transition = SlideTransition(direction='left')
             self.current = name
+            Clock.schedule_once(self.recheck_aircraft, 5)
 
+    def recheck_aircraft(self, dt):
+        self.load_aircraft_screens()
+        if not any(s.startswith("aircraft_") for s in self.screen_names):
+            self.current = "scanning"
 
 class MilitaryApp(App):
     def build(self):
         sm = MilitaryScreenManager(transition=FadeTransition())
         sm.add_widget(InitScreen(name='init'))
         sm.add_widget(MainScreen(name='main'))
+        sm.add_widget(ScanningScreen(name='scanning'))
         return sm
-
 
 if __name__ == '__main__':
     MilitaryApp().run()
