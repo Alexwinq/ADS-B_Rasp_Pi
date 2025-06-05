@@ -1,48 +1,29 @@
 import json
 import os
 from kivy.app import App
-from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition, NoTransition
+from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.relativelayout import RelativeLayout
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.utils import get_color_from_hex
 from kivy.config import Config
-from kivy.uix.screenmanager import Screen
 
-# Fullscreen and hide mouse
+# Fullscreen and hide mouse cursor
 Config.set('graphics', 'fullscreen', 'auto')
 Config.set('graphics', 'show_cursor', '0')
 
-# Optional: Register a custom military-style font
-LabelBase.register(name="Military", fn_regular="VT323-Regular.ttf")  # Ensure font file present
+# Register custom military-style font (make sure the font file is present)
+LabelBase.register(name="Military", fn_regular="VT323-Regular.ttf")
 
 # COLORS
-MILITARY_GREEN = get_color_from_hex("#00FF00")  # Bright green
+MILITARY_GREEN = get_color_from_hex("#00FF00")
 BLACK = get_color_from_hex("#000000")
 
-# Path to dump1090 JSON output
-AIRCRAFT_FILE = "/run/dump1090-fa/aircraft.json"
-
-# Optional tail number mapping
-hex_to_tail = {
-    "a7302f": "N12345",
-    "ab4af1": "N67890",
-}
-
-def load_aircraft():
-    """Load all aircraft from dump1090 JSON, no filtering."""
-    if not os.path.exists(AIRCRAFT_FILE):
-        return []
-
-    with open(AIRCRAFT_FILE, "r") as f:
-        try:
-            data = json.load(f)
-        except json.JSONDecodeError:
-            return []
-
-    return data.get("aircraft", [])
+JSON_FOLDER = "json_output"
+JSON_FILE = os.path.join(JSON_FOLDER, "aircraft_data.json")
 
 class InitScreen(Screen):
     def __init__(self, **kwargs):
@@ -60,13 +41,11 @@ class InitScreen(Screen):
         )
         self.label.bind(size=self.label.setter('text_size'))
 
-        self.layout = BoxLayout(orientation='vertical', padding=50)
-        self.layout.add_widget(self.label)
-        self.add_widget(self.layout)
+        layout = BoxLayout(orientation='vertical', padding=50)
+        layout.add_widget(self.label)
+        self.add_widget(layout)
 
-        # Animate dots every 0.5s
         Clock.schedule_interval(self.animate_dots, 0.5)
-        # Move to main screen after 8 seconds
         Clock.schedule_once(self.goto_main_screen, 8)
 
     def animate_dots(self, dt):
@@ -77,65 +56,26 @@ class InitScreen(Screen):
     def goto_main_screen(self, dt):
         self.manager.current = 'main'
 
-class AircraftScreen(Screen):
-    def __init__(self, index, **kwargs):
-        super().__init__(name=f"aircraft_{index}", **kwargs)
-
-        self.index = index
-
-        self.layout = BoxLayout(orientation='vertical', padding=50, spacing=20)
-
-        self.info_label = Label(
-            text="Loading aircraft info...",
+class MainScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        layout = BoxLayout(orientation='vertical', padding=100, spacing=20)
+        button = Button(
+            text="Begin scanning for aircraft",
             font_size=32,
+            size_hint=(0.6, 0.2),
+            pos_hint={'center_x': 0.5},
+            background_color=BLACK,
             color=MILITARY_GREEN,
-            font_name="Military",
-            halign="left",
-            valign="top"
+            font_name="Military"
         )
-        self.info_label.bind(size=self.info_label.setter('text_size'))
+        button.bind(on_press=self.start_scanning)
+        layout.add_widget(button)
+        self.add_widget(layout)
 
-        self.aircraft_count_label = Label(
-            text="",
-            font_size=18,
-            color=MILITARY_GREEN,
-            font_name="Military",
-            size_hint=(None, None),
-            size=(200, 30),
-            halign="right",
-            valign="top",
-            pos_hint={"right": 1, "top": 1},
-        )
-        self.aircraft_count_label.bind(size=self.aircraft_count_label.setter('text_size'))
-
-        # Add count label and info label to layout
-        self.layout.add_widget(self.aircraft_count_label)
-        self.layout.add_widget(self.info_label)
-        self.add_widget(self.layout)
-
-    def update_info(self, aircraft, total_count):
-        hexid = aircraft.get("hex", "???")
-        lat = aircraft.get("lat", "N/A")
-        lon = aircraft.get("lon", "N/A")
-        alt = aircraft.get("alt_baro", "N/A")
-        speed = aircraft.get("gs", "N/A")
-        flight = aircraft.get("flight", "").strip()
-        seen = aircraft.get("seen", 0)
-
-        tail = hex_to_tail.get(hexid.lower(), "Unknown")
-
-        self.info_label.text = (
-            f"--- Aircraft Detected ---\n"
-            f"ICAO Hex : {hexid}\n"
-            f"Tail #   : {tail}\n"
-            f"Flight   : {flight}\n"
-            f"Altitude : {alt} ft\n"
-            f"Speed    : {speed} knots\n"
-            f"Lat/Lon  : {lat}, {lon}\n"
-            f"Last seen: {seen:.1f} sec ago"
-        )
-
-        self.aircraft_count_label.text = f"Total Aircraft: {total_count}"
+    def start_scanning(self, instance):
+        self.manager.current = "scanning"
+        self.manager.get_screen("scanning").start()
 
 class ScanningScreen(Screen):
     def __init__(self, **kwargs):
@@ -143,7 +83,6 @@ class ScanningScreen(Screen):
         self.dot_index = 0
         self.dot_sequence = [".", "..", "...", "...."]
 
-        self.layout = BoxLayout(orientation='vertical', padding=50)
         self.label = Label(
             text="Scanning for aircraft.",
             font_size=48,
@@ -153,102 +92,267 @@ class ScanningScreen(Screen):
             valign="middle"
         )
         self.label.bind(size=self.label.setter('text_size'))
-        self.layout.add_widget(self.label)
-        self.add_widget(self.layout)
 
-        # Animate dots every 0.5s
-        Clock.schedule_interval(self.animate_dots, 0.5)
+        layout = BoxLayout(orientation='vertical', padding=50)
+        layout.add_widget(self.label)
+        self.add_widget(layout)
+
+        self.update_event = None
 
     def animate_dots(self, dt):
         dots = self.dot_sequence[self.dot_index]
         self.label.text = f"Scanning for aircraft{dots}"
         self.dot_index = (self.dot_index + 1) % len(self.dot_sequence)
 
-class MainScreen(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.layout = BoxLayout(orientation='vertical', padding=100, spacing=20)
-        self.button = Button(
-            text="Begin scanning for aircraft",
+    def start(self):
+        self.dot_index = 0
+        self.label.text = "Scanning for aircraft."
+        if self.update_event:
+            self.update_event.cancel()
+        self.update_event = Clock.schedule_interval(self.check_for_aircraft, 1)
+
+        # Animate dots every 0.5s
+        self.dot_anim_event = Clock.schedule_interval(self.animate_dots, 0.5)
+
+    def check_for_aircraft(self, dt):
+        aircraft_list = self.load_aircraft_data()
+        if aircraft_list:
+            # Aircraft detected, switch to first aircraft screen
+            self.update_event.cancel()
+            self.dot_anim_event.cancel()
+            self.manager.get_screen("aircraft_display").load_aircraft_list(aircraft_list)
+            self.manager.current = "aircraft_display"
+
+    def load_aircraft_data(self):
+        if not os.path.exists(JSON_FILE):
+            return []
+        try:
+            with open(JSON_FILE, "r") as f:
+                data = json.load(f)
+        except Exception:
+            return []
+
+        # data expected as list of aircraft dicts
+        if isinstance(data, list):
+            return data
+        else:
+            return []
+
+class AircraftScreen(Screen):
+    def __init__(self, aircraft, index, total, **kwargs):
+        # name is mandatory for ScreenManager; set here
+        super().__init__(name=f"aircraft_{index}", **kwargs)
+        self.aircraft = aircraft
+        self.index = index
+        self.total = total
+
+        self.layout = RelativeLayout()
+        self.add_widget(self.layout)
+
+        # Display aircraft info labels
+        self.create_ui()
+
+    def create_ui(self):
+        ac = self.aircraft
+
+        hexid = ac.get("hex", "???")
+        lat = ac.get("lat", "N/A")
+        lon = ac.get("lon", "N/A")
+        alt = ac.get("alt_baro", "N/A")
+        speed = ac.get("gs", "N/A")
+        flight = ac.get("flight", "").strip()
+        seen = ac.get("seen", 0)
+
+        tail = ac.get("tail", "Unknown")
+
+        # Large labels centered
+        label_text = (
+            f"ICAO Hex: {hexid}\n"
+            f"Tail #: {tail}\n"
+            f"Flight: {flight}\n"
+            f"Altitude: {alt} ft\n"
+            f"Speed: {speed} knots\n"
+            f"Lat/Lon: {lat}, {lon}\n"
+            f"Last seen: {seen:.1f} sec ago"
+        )
+
+        self.info_label = Label(
+            text=label_text,
             font_size=32,
-            size_hint=(0.6, 0.2),
-            pos_hint={'center_x': 0.5},
+            color=MILITARY_GREEN,
+            font_name="Military",
+            halign="left",
+            valign="top",
+            size_hint=(0.9, 0.8),
+            pos_hint={"x": 0.05, "top": 0.9}
+        )
+        self.info_label.bind(size=self.info_label.setter('text_size'))
+        self.layout.add_widget(self.info_label)
+
+        # Aircraft count label top-right
+        self.count_label = Label(
+            text=f"{self.index + 1} / {self.total} aircraft",
+            font_size=24,
+            color=MILITARY_GREEN,
+            font_name="Military",
+            size_hint=(None, None),
+            size=(200, 50),
+            pos_hint={"right": 0.98, "top": 0.98}
+        )
+        self.layout.add_widget(self.count_label)
+
+        # Navigation buttons
+        btn_prev = Button(
+            text="<< Prev",
+            font_size=24,
+            size_hint=(0.2, 0.1),
+            pos_hint={"x": 0.05, "y": 0.05},
             background_color=BLACK,
             color=MILITARY_GREEN,
             font_name="Military"
         )
-        self.layout.add_widget(self.button)
-        self.add_widget(self.layout)
+        btn_prev.bind(on_press=self.go_prev)
+        self.layout.add_widget(btn_prev)
 
-        self.button.bind(on_press=self.start_scanning)
+        btn_next = Button(
+            text="Next >>",
+            font_size=24,
+            size_hint=(0.2, 0.1),
+            pos_hint={"right": 0.95, "y": 0.05},
+            background_color=BLACK,
+            color=MILITARY_GREEN,
+            font_name="Military"
+        )
+        btn_next.bind(on_press=self.go_next)
+        self.layout.add_widget(btn_next)
 
-    def start_scanning(self, instance):
-        app = App.get_running_app()
-        app.start_aircraft_updates()
+    def go_prev(self, instance):
+        prev_index = (self.index - 1) % self.total
+        self.manager.get_screen("aircraft_display").show_aircraft(prev_index)
+
+    def go_next(self, instance):
+        next_index = (self.index + 1) % self.total
+        self.manager.get_screen("aircraft_display").show_aircraft(next_index)
+
+    def update_info(self, aircraft, index, total):
+        self.aircraft = aircraft
+        self.index = index
+        self.total = total
+
+        hexid = aircraft.get("hex", "???")
+        lat = aircraft.get("lat", "N/A")
+        lon = aircraft.get("lon", "N/A")
+        alt = aircraft.get("alt_baro", "N/A")
+        speed = aircraft.get("gs", "N/A")
+        flight = aircraft.get("flight", "").strip()
+        seen = aircraft.get("seen", 0)
+        tail = aircraft.get("tail", "Unknown")
+
+        label_text = (
+            f"ICAO Hex: {hexid}\n"
+            f"Tail #: {tail}\n"
+            f"Flight: {flight}\n"
+            f"Altitude: {alt} ft\n"
+            f"Speed: {speed} knots\n"
+            f"Lat/Lon: {lat}, {lon}\n"
+            f"Last seen: {seen:.1f} sec ago"
+        )
+        self.info_label.text = label_text
+        self.count_label.text = f"{self.index + 1} / {self.total} aircraft"
+
+
+class AircraftDisplayScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(name="aircraft_display", **kwargs)
+        self.aircraft_list = []
+        self.current_index = 0
+        self.aircraft_screen = None
+        self.update_event = None
+
+    def load_aircraft_list(self, aircraft_list):
+        self.aircraft_list = aircraft_list
+        self.current_index = 0
+
+        if not self.aircraft_list:
+            # No aircraft, go back to scanning
+            self.manager.current = "scanning"
+            self.manager.get_screen("scanning").start()
+            return
+
+        if self.aircraft_screen:
+            # Update existing screen without transition animation
+            self.aircraft_screen.update_info(
+                self.aircraft_list[self.current_index], self.current_index, len(self.aircraft_list)
+            )
+        else:
+            # Create first AircraftScreen
+            self.aircraft_screen = AircraftScreen(
+                self.aircraft_list[self.current_index], self.current_index, len(self.aircraft_list)
+            )
+            self.clear_widgets()
+            self.add_widget(self.aircraft_screen)
+
+        # Schedule update to refresh aircraft data every 2 seconds
+        if self.update_event:
+            self.update_event.cancel()
+        self.update_event = Clock.schedule_interval(self.update_aircraft_data, 2)
+
+    def update_aircraft_data(self, dt):
+        new_list = self.load_aircraft_data()
+        if not new_list:
+            # No aircraft, go back to scanning
+            if self.update_event:
+                self.update_event.cancel()
+            self.manager.current = "scanning"
+            self.manager.get_screen("scanning").start()
+            return
+
+        self.aircraft_list = new_list
+        total = len(self.aircraft_list)
+
+        # Keep current index valid
+        if self.current_index >= total:
+            self.current_index = 0
+
+        # Update current screen data without animation
+        self.aircraft_screen.update_info(
+            self.aircraft_list[self.current_index], self.current_index, total
+        )
+
+    def load_aircraft_data(self):
+        if not os.path.exists(JSON_FILE):
+            return []
+        try:
+            with open(JSON_FILE, "r") as f:
+                data = json.load(f)
+        except Exception:
+            return []
+
+        # Expected data: list of dicts (aircraft)
+        if not isinstance(data, list):
+            return []
+
+        return data
+
+    def show_aircraft(self, index):
+        if not self.aircraft_list:
+            return
+        self.current_index = index % len(self.aircraft_list)
+        self.aircraft_screen.update_info(
+            self.aircraft_list[self.current_index], self.current_index, len(self.aircraft_list)
+        )
+
 
 class MilitaryApp(App):
     def build(self):
         self.sm = ScreenManager(transition=FadeTransition())
-        self.sm.add_widget(InitScreen(name='init'))
-        self.sm.add_widget(MainScreen(name='main'))
-        self.scanning_screen = ScanningScreen(name='scanning')
-        self.sm.add_widget(self.scanning_screen)
 
-        self.aircraft_screens = {}  # cache screens by index
-        self.aircraft_data = []
-        self.current_index = 0
+        self.sm.add_widget(InitScreen(name="init"))
+        self.sm.add_widget(MainScreen(name="main"))
+        self.sm.add_widget(ScanningScreen(name="scanning"))
+        self.sm.add_widget(AircraftDisplayScreen(name="aircraft_display"))
 
         return self.sm
 
-    def start_aircraft_updates(self):
-        self.sm.current = "scanning"
-        # Schedule the first update immediately, then every 5 seconds
-        Clock.schedule_once(self.update_aircraft_data, 0)
-
-    def update_aircraft_data(self, dt):
-        aircraft = load_aircraft()
-        total = len(aircraft)
-
-        if total == 0:
-            # No aircraft, stay on scanning screen
-            if self.sm.current != "scanning":
-                self.sm.current = "scanning"
-            # reschedule next update
-            Clock.schedule_once(self.update_aircraft_data, 5)
-            return
-
-        # Clamp current_index if out of range
-        if self.current_index >= total:
-            self.current_index = 0
-
-        current_ac = aircraft[self.current_index]
-
-        # Check if aircraft screen exists, else create
-        screen_name = f"aircraft_{self.current_index}"
-        if screen_name not in self.aircraft_screens:
-            screen = AircraftScreen(self.current_index, name=screen_name)
-            self.aircraft_screens[screen_name] = screen
-            self.sm.add_widget(screen)
-        else:
-            screen = self.aircraft_screens[screen_name]
-
-        # If already on this aircraft screen, just update text (no animation)
-        if self.sm.current == screen_name:
-            screen.update_info(current_ac, total)
-        else:
-            # Switch screen without animation
-            self.sm.transition = NoTransition()
-            self.sm.current = screen_name
-            screen.update_info(current_ac, total)
-            # Restore transition to FadeTransition for other changes
-            self.sm.transition = FadeTransition()
-
-        self.current_index += 1
-        if self.current_index >= total:
-            self.current_index = 0
-
-        # Schedule next update
-        Clock.schedule_once(self.update_aircraft_data, 5)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     MilitaryApp().run()
