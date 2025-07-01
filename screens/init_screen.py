@@ -20,8 +20,6 @@ resource_add_path(font_path)
 
 TAN_COLOR = get_color_from_hex("#D2B48C")
 
-
-
 class InitScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
