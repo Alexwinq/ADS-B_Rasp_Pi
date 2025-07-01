@@ -13,7 +13,7 @@ from kivy.core.window import Window
 from kivy.app import App
 import os
 
-font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
 resource_add_path(font_path)
 
 
@@ -31,8 +31,8 @@ class InitScreen(Screen):
         self.label = Label(
             text="Scanning for Aircraft.",
             font_size=48,
-            color=TAN_COLOR,
-            font_name="VT323",
+            color=[210 / 255, 180 / 255, 140 / 255, 1],  # D2B48C tan color in RGBA
+            font_name=font_path,
             halign="center",
             valign="middle"
         )
