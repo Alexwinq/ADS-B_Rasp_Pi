@@ -3,6 +3,11 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.clock import Clock
 from kivy.utils import get_color_from_hex
+from kivy.resources import resource_add_path
+import os
+
+font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+resource_add_path(font_path)
 
 
 TAN_COLOR = get_color_from_hex("#D2B48C")
