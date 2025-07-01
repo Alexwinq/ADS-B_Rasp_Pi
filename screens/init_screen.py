@@ -14,6 +14,7 @@ from kivy.app import App
 import os
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
+print(font_path)
 resource_add_path(font_path)
 
 
