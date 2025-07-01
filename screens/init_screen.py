@@ -23,7 +23,7 @@ class InitScreen(Screen):
             text="Initializing.",
             font_size=48,
             color=TAN_COLOR,
-            font_name="Military",  # Replace or remove if you don't have a custom font
+            font_name="VT323-Regular.ttf",
             halign="center",
             valign="middle"
         )
