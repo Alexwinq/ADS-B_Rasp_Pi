@@ -14,7 +14,6 @@ from kivy.app import App
 import os
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
-print(font_path)
 resource_add_path(font_path)
 
 
@@ -42,7 +41,7 @@ class InitScreen(Screen):
             text="Lat: ---, Lon: ---",
             font_size=18,
             color=TAN_COLOR,
-            font_name="VT323",
+            font_name=font_path,
             size_hint=(None, None),
             size=(250, 30),
             halign="right",
