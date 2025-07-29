@@ -15,8 +15,6 @@ import os
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
 resource_add_path(font_path)
-
-
 TAN_COLOR = get_color_from_hex("#D2B48C")
 
 class InitScreen(Screen):
@@ -83,7 +81,7 @@ class InitScreen(Screen):
 
     def animate_dots(self, dt):
         dots = self.dot_sequence[self.dot_index]
-        self.label.text = f"Initializing{dots}"
+        self.label.text = f"Scanning for Aircraft{dots}"
         self.dot_index = (self.dot_index + 1) % len(self.dot_sequence)
 
     def update_gps(self, dt):
