@@ -11,7 +11,7 @@ hex_to_tail = {
     "ab4af1": "N67890",
 }
 
-OUTPUT_DIR = "json_output"
+OUTPUT_DIR = "../json_output"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "aircraft_status.json")
 
 def load_aircraft_with_position():
