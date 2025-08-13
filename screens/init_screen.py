@@ -64,7 +64,7 @@ class InitScreen(Screen):
         Clock.schedule_interval(self.animate_dots, 0.5)
 
         # For demo, quit app after 5 seconds
-        Clock.schedule_once(lambda dt: self.stop_app(), 5)
+        # Clock.schedule_once(lambda dt: self.stop_app(), 5)
 
         # Simulate GPS updates every second
         Clock.schedule_interval(self.update_gps, 1)
