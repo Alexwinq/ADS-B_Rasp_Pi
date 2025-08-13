@@ -12,6 +12,7 @@ from kivy.core.text import LabelBase
 from kivy.core.window import Window
 from kivy.app import App
 import os
+import json
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
 resource_add_path(font_path)
@@ -68,6 +69,9 @@ class InitScreen(Screen):
         # Simulate GPS updates every second
         Clock.schedule_interval(self.update_gps, 1)
 
+        # check for json data every 5 seconds
+        Clock.schedule_interval(self.check_for_aircraft_data, 5)
+
         # Dummy lat/lon for demo
         self.latitude = 37.7749
         self.longitude = -122.4194
@@ -88,6 +92,23 @@ class InitScreen(Screen):
         # Here you'd update self.latitude, self.longitude with actual GPS data
         self.gps_label.text = f"Lat: {self.latitude:.4f}, Lon: {self.longitude:.4f}"
         self.position_gps_label()  # Reposition if text size changes
+
+    def check_for_aircraft_data(self, dt):
+        json_path = os.path.join(os.path.dirname(__file__), "..", "ADSB", "ADS-B_Rasp_Pi", "json_output",
+                                 "test_output.json")
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r") as f:
+                    data = f.read().strip()
+                    # Check if data is not empty and valid json
+                    if data:
+                        json_data = json.loads(data)
+                        if json_data:  # If JSON data is not empty
+                            # Switch to AircraftDetect screen and pass the data
+                            self.manager.get_screen('detect_ac').update_data(json_data)
+                            self.manager.current = 'detect_ac'
+            except Exception as e:
+                print(f"Error reading JSON: {e}")
 
     def stop_app(self):
         from kivy.app import App
