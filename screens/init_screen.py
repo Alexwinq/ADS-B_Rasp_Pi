@@ -94,8 +94,8 @@ class InitScreen(Screen):
         self.position_gps_label()  # Reposition if text size changes
 
     def check_for_aircraft_data(self, dt):
-        json_path = os.path.join(os.path.dirname(__file__), "..", "ADSB", "ADS-B_Rasp_Pi", "json_output",
-                                 "test_output.json")
+        json_path = os.path.join(os.path.dirname(__file__), "..", "json_output", "test_output.json")
+
         if os.path.exists(json_path):
             try:
                 with open(json_path, "r") as f:
