@@ -110,6 +110,6 @@ class InitScreen(Screen):
             except Exception as e:
                 print(f"Error reading JSON: {e}")
 
-    def stop_app(self):
-        from kivy.app import App
-        App.get_running_app().stop()
+    # def stop_app(self):
+    #     from kivy.app import App
+    #     App.get_running_app().stop()
