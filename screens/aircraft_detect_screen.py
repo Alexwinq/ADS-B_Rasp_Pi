@@ -27,7 +27,6 @@ class AircraftDetect(Screen):
 
         self.layout = BoxLayout(orientation='vertical', padding=20)
 
-        # ScrollView to enable scrolling of long JSON text
         scrollview = ScrollView(size_hint=(1, 1))
 
         self.data_label = Label(
@@ -37,17 +36,24 @@ class AircraftDetect(Screen):
             font_name="VT323",
             halign='left',
             valign='top',
-            size_hint_y=None,  # Important: let height be dynamic
+            size_hint_y=None,  # height is dynamic
+            text_size=(self.width, None),  # Initial value, will update dynamically
         )
         self.data_label.bind(texture_size=self.update_label_height)
+        self.bind(size=self.update_label_width)
 
         scrollview.add_widget(self.data_label)
         self.layout.add_widget(scrollview)
         self.add_widget(self.layout)
 
-    def update_label_height(self, instance, size):
-        instance.height = size[1]  # Make label height equal to the texture height
-        instance.text_size = (instance.width, None)  # Wrap text to label width
+    def update_label_height(self, instance, texture_size):
+        instance.height = texture_size[1]
+
+    def update_label_width(self, instance, value):
+        # Update text_size width to label width for wrapping text nicely
+        self.data_label.text_size = (self.width - 40, None)  # minus padding
+        # Force re-render
+        self.data_label.texture_update()
 
     def update_data(self, json_data):
         formatted_text = json.dumps(json_data, indent=2)
