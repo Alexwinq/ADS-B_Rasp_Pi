@@ -1,24 +1,20 @@
 from kivy.config import Config
 Config.set('graphics', 'width', '800')
 Config.set('graphics', 'height', '480')
+
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.core.text import LabelBase
 from kivy.utils import get_color_from_hex
 from kivy.resources import resource_add_path
-import os
-import json
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.screenmanager import Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.utils import get_color_from_hex
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 
-
+import os
+import json
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
 resource_add_path(font_path)
@@ -26,7 +22,6 @@ LabelBase.register(name="VT323", fn_regular=font_path)
 
 TAN_COLOR = get_color_from_hex("#D2B48C")
 
-from kivy.uix.button import Button  # Make sure you have this import
 
 class AircraftDetect(Screen):
     def __init__(self, **kwargs):
@@ -65,12 +60,13 @@ class AircraftDetect(Screen):
         top_bar.add_widget(self.count_label)
         top_bar.add_widget(self.gps_label)
 
+        # *** Update GPS label text here with the hardcoded lat/lon ***
+        self.update_gps(self.latitude, self.longitude)
+
         root_layout.add_widget(top_bar)
 
-        # Below: BoxLayout for Prev / Next buttons + ScrollView for data
-
-        # Buttons layout
-        btn_layout = BoxLayout(size_hint=(1, 0.1), padding=10, spacing=10, pos_hint={"top":0.9})
+        # Buttons layout for Prev / Next
+        btn_layout = BoxLayout(size_hint=(1, 0.1), padding=10, spacing=10, pos_hint={"top": 0.9})
 
         self.prev_button = Button(text="< Prev", size_hint=(0.2, 1))
         self.prev_button.bind(on_press=self.show_prev)
@@ -84,7 +80,7 @@ class AircraftDetect(Screen):
 
         root_layout.add_widget(btn_layout)
 
-        # ScrollView for aircraft data
+        # ScrollView for aircraft data display
         self.data_label = Label(
             text="",
             font_size=24,
