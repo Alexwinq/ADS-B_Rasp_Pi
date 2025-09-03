@@ -14,6 +14,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.utils import get_color_from_hex
+from kivy.uix.floatlayout import FloatLayout
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
 resource_add_path(font_path)
@@ -28,7 +29,7 @@ class AircraftDetect(Screen):
         super().__init__(**kwargs)
 
         self.layout = BoxLayout(orientation='vertical', padding=20)
-
+        root_layout = FloatLayout()
         scrollview = ScrollView(size_hint=(1, 1))
         self.latitude = 37.7749
         self.longitude = -122.4194
@@ -61,6 +62,7 @@ class AircraftDetect(Screen):
             valign="top"
         )
         self.gps_label.bind(size=self.gps_label.setter('text_size'))
+        root_layout.add_widget(self.gps_label)
 
     def update_label_height(self, instance, texture_size):
         instance.height = texture_size[1]
