@@ -23,9 +23,11 @@ class AircraftDetect(Screen):
             color=TAN_COLOR,
             font_name="VT323",
             halign='left',
-            valign='top'
+            valign='top',
+            size_hint_y=None
         )
-        self.data_label.bind(size=self._update_label_height)
+        #self.data_label.bind(size=self._update_label_height)
+
 
         self.layout.add_widget(self.data_label)
         self.add_widget(self.layout)
@@ -38,3 +40,7 @@ class AircraftDetect(Screen):
     def update_data(self, json_data):
         formatted_text = json.dumps(json_data, indent=2)
         self.data_label.text = formatted_text
+
+        self.data_label.text_size = (self.data_label.width, None)
+        self.data_label.texture_update()
+        self.data_label.height = self.data_label.texture_size[1]
