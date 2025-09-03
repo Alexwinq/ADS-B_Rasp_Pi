@@ -21,6 +21,8 @@ LabelBase.register(name="VT323", fn_regular=font_path)
 
 TAN_COLOR = get_color_from_hex("#D2B48C")
 
+
+
 class AircraftDetect(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -28,6 +30,8 @@ class AircraftDetect(Screen):
         self.layout = BoxLayout(orientation='vertical', padding=20)
 
         scrollview = ScrollView(size_hint=(1, 1))
+        self.latitude = 37.7749
+        self.longitude = -122.4194
 
         self.data_label = Label(
             text="",
@@ -45,6 +49,18 @@ class AircraftDetect(Screen):
         scrollview.add_widget(self.data_label)
         self.layout.add_widget(scrollview)
         self.add_widget(self.layout)
+        # GPS coordinates label positioned top-right via pos_hint
+        self.gps_label = Label(
+            text="Lat: ---, Lon: ---",
+            size_hint=(0.4, 0.1),
+            pos_hint={'right': 0.98, 'top': 0.98},
+            font_size=18,
+            color=TAN_COLOR,
+            font_name=font_path,
+            halign="right",
+            valign="top"
+        )
+        self.gps_label.bind(size=self.gps_label.setter('text_size'))
 
     def update_label_height(self, instance, texture_size):
         instance.height = texture_size[1]
