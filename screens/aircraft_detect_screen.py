@@ -16,6 +16,8 @@ from kivy.uix.label import Label
 from kivy.utils import get_color_from_hex
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.button import Button
+from kivy.uix.widget import Widget
+
 
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
