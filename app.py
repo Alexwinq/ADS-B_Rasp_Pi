@@ -2,6 +2,10 @@ from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager
 from screens.init_screen import InitScreen
 from screens.aircraft_detect_screen import AircraftDetect
+from kivy.config import Config
+Config.set('graphics', 'width', '800')
+Config.set('graphics', 'height', '480')
+
 # Later: from screens.home_screen import HomeScreen
 
 class TrackerApp(App):

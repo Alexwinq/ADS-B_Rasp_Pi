@@ -2,6 +2,9 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.clock import Clock
+from kivy.config import Config
+Config.set('graphics', 'width', '800')
+Config.set('graphics', 'height', '480')
 from kivy.utils import get_color_from_hex
 from kivy.resources import resource_add_path
 from kivy.uix.screenmanager import Screen
@@ -13,6 +16,7 @@ from kivy.core.window import Window
 from kivy.app import App
 import os
 import json
+from kivy.uix.floatlayout import FloatLayout
 
 font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
 resource_add_path(font_path)
@@ -36,17 +40,20 @@ class InitScreen(Screen):
         self.label.bind(size=self.label.setter('text_size'))
 
         # GPS coordinates label top-right corner
+
+        layout = FloatLayout()
         self.gps_label = Label(
             text="Lat: ---, Lon: ---",
+            size_hint=(0.4, 0.1),
+            pos_hint={'right': 0.98, 'top': 0.98},
             font_size=18,
             color=TAN_COLOR,
             font_name=font_path,
-            size_hint=(None, None),
-            size=(250, 30),
             halign="right",
             valign="top"
         )
         self.gps_label.bind(size=self.gps_label.setter('text_size'))
+        layout.add_widget(self.gps_label)
 
         # Layout to center loading label
         layout = BoxLayout(orientation='vertical', padding=50)
