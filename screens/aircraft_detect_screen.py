@@ -26,15 +26,41 @@ class AircraftDetect(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Root FloatLayout for absolute positioning of gps_label and other widgets
-        root_layout = FloatLayout()
+        self.aircraft_list = []
+        self.current_index = 0
 
-        # BoxLayout inside ScrollView for JSON data (vertical scroll)
-        scrollview = ScrollView(size_hint=(1, 1), pos_hint={'x':0, 'y':0})
-        data_box = BoxLayout(orientation='vertical', padding=20, size_hint_y=None)
-        data_box.bind(minimum_height=data_box.setter('height'))  # Auto height grows with content
+        # Root layout to allow absolute positioning
+        self.root_layout = FloatLayout()
 
-        # Label to display JSON data inside data_box
+        # Label showing "Aircraft X of Y" in top-right corner
+        self.status_label = Label(
+            text="Aircraft 0 of 0",
+            size_hint=(0.3, 0.1),
+            pos_hint={'right': 0.98, 'top': 0.98},
+            font_size=18,
+            color=TAN_COLOR,
+            font_name="VT323",
+            halign='right',
+            valign='middle'
+        )
+        self.status_label.bind(size=self.status_label.setter('text_size'))
+        self.root_layout.add_widget(self.status_label)
+
+        # Navigation buttons container at bottom
+        nav_layout = BoxLayout(
+            size_hint=(1, 0.1),
+            pos_hint={'x':0, 'y':0}
+        )
+        self.prev_button = Button(text="< Prev", size_hint=(0.2, 1))
+        self.next_button = Button(text="Next >", size_hint=(0.2, 1))
+        self.prev_button.bind(on_press=self.show_prev)
+        self.next_button.bind(on_press=self.show_next)
+        nav_layout.add_widget(self.prev_button)
+        nav_layout.add_widget(Label())  # spacer
+        nav_layout.add_widget(self.next_button)
+
+        # ScrollView with Label for aircraft data
+        self.scrollview = ScrollView(size_hint=(1, 0.8), pos_hint={'x':0, 'y':0.1})
         self.data_label = Label(
             text="",
             font_size=24,
@@ -42,43 +68,69 @@ class AircraftDetect(Screen):
             font_name="VT323",
             halign='left',
             valign='top',
-            size_hint_y=None,
-            text_size=(780, None),  # Fixed width (screen width minus some padding)
+            size_hint_y=None,  # height dynamic based on text
+            text_size=(self.width - 40, None)  # padding for wrap
         )
         self.data_label.bind(texture_size=self.update_label_height)
+        self.bind(size=self.update_label_width)
+        self.scrollview.add_widget(self.data_label)
 
-        data_box.add_widget(self.data_label)
-        scrollview.add_widget(data_box)
+        # Add ScrollView and nav layout to root layout
+        self.root_layout.add_widget(self.scrollview)
+        self.root_layout.add_widget(nav_layout)
 
-        root_layout.add_widget(scrollview)
-
-        # GPS coordinates label positioned top-right (absolute positioning)
-        self.gps_label = Label(
-            text="Lat: ---, Lon: ---",
-            size_hint=(None, None),
-            size=(320, 40),  # Fixed size for GPS label
-            pos_hint={'right': 0.98, 'top': 0.98},
-            font_size=18,
-            color=TAN_COLOR,
-            font_name=font_path,
-            halign="right",
-            valign="middle",
-        )
-        self.gps_label.bind(size=self.gps_label.setter('text_size'))
-        root_layout.add_widget(self.gps_label)
-
-        # Add root layout to screen
-        self.add_widget(root_layout)
-
-        # Dummy GPS data (replace with real GPS updates as needed)
-        self.latitude = 37.7749
-        self.longitude = -122.4194
+        self.add_widget(self.root_layout)
 
     def update_label_height(self, instance, texture_size):
         instance.height = texture_size[1]
 
+    def update_label_width(self, instance, value):
+        self.data_label.text_size = (self.width - 40, None)
+        self.data_label.texture_update()
+
     def update_data(self, json_data):
-        formatted_text = json.dumps(json_data, indent=2)
-        self.data_label.text = formatted_text
-        # Update GPS label text here if you want dynamic GPS data on this screen as well
-        self.gps_label.text = f"Lat: {self.latitude:.4f}, Lon: {self.longitude:.4f}"
+        # Expect json_data to contain a list or dict with aircraft info
+        # Adjust this depending on your actual JSON structure
+        if isinstance(json_data, dict) and "aircraft" in json_data:
+            self.aircraft_list = json_data["aircraft"]
+        elif isinstance(json_data, list):
+            self.aircraft_list = json_data
+        else:
+            self.aircraft_list = []
+
+        self.current_index = 0
+
+        if self.aircraft_list:
+            self.show_aircraft(self.current_index)
+        else:
+            self.data_label.text = "No aircraft data available."
+            self.status_label.text = "Aircraft 0 of 0"
+
+        self.update_nav_buttons()
+
+    def show_aircraft(self, index):
+        if 0 <= index < len(self.aircraft_list):
+            # Format the aircraft info nicely
+            aircraft = self.aircraft_list[index]
+            formatted_text = json.dumps(aircraft, indent=2)
+            self.data_label.text = formatted_text
+            self.status_label.text = f"Aircraft {index + 1} of {len(self.aircraft_list)}"
+            self.scrollview.scroll_y = 1  # Scroll to top
+
+        self.update_nav_buttons()
+
+    def show_prev(self, *args):
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.show_aircraft(self.current_index)
+
+    def show_next(self, *args):
+        if self.current_index < len(self.aircraft_list) - 1:
+            self.current_index += 1
+            self.show_aircraft(self.current_index)
+
+    def update_nav_buttons(self):
+        # Disable prev button if at start
+        self.prev_button.disabled = self.current_index == 0
+        # Disable next button if at end
+        self.next_button.disabled = self.current_index >= len(self.aircraft_list) - 1
