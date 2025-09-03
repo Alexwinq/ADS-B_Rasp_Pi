@@ -1,9 +1,23 @@
+from kivy.config import Config
+Config.set('graphics', 'width', '800')
+Config.set('graphics', 'height', '480')
+from kivy.uix.screenmanager import Screen
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.core.text import LabelBase
+from kivy.utils import get_color_from_hex
+from kivy.resources import resource_add_path
+import os
+import json
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.utils import get_color_from_hex
-import json
+
+font_path = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "VT323-Regular.ttf")
+resource_add_path(font_path)
+LabelBase.register(name="VT323", fn_regular=font_path)
 
 TAN_COLOR = get_color_from_hex("#D2B48C")
 
@@ -38,4 +52,3 @@ class AircraftDetect(Screen):
     def update_data(self, json_data):
         formatted_text = json.dumps(json_data, indent=2)
         self.data_label.text = formatted_text
-
