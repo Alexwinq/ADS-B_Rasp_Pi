@@ -7,14 +7,4 @@
     "gs": 450,
     "flight": "UAL123 ",
     "seen": 3.2
-  },
-  {
-    "hex": "ab4af1",
-    "lat": 37.8,
-    "lon": -122.5,
-    "alt_baro": 38000,
-    "gs": 470,
-    "flight": "AAL456 ",
-    "seen": 1.7
   }
-]
