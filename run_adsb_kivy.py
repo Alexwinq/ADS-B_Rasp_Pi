@@ -8,7 +8,7 @@ import requests
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager
 from screens.init_screen import InitScreen
-from screens.detect_ac_screen import DetectAircraftScreen  # You should have this
+from screens.aircraft_detect_screen import AircraftDetect  # You should have this
 
 # Start dump1090-fa in the background
 def start_dump1090():
@@ -60,7 +60,7 @@ class ADSBApp(App):
     def build(self):
         sm = ScreenManager()
         sm.add_widget(InitScreen(name='init'))
-        sm.add_widget(DetectAircraftScreen(name='detect_ac'))
+        sm.add_widget(AircraftDetect(name='detect_ac'))
         return sm
 
 
