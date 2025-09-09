@@ -1,71 +1,60 @@
 import json
 import subprocess
-from kivy.app import App
-from kivy.uix.label import Label
-from kivy.clock import Clock
+import os
+from time import sleep
 
-# Adjust these paths as needed
+JSON_INPUT_FILE = "/home/alex/dump1090-json/aircraft.json"
+JSON_OUTPUT_FILE = "/home/alex/ADS-B_Rasp_Pi/json_output/test_output.json"
 DUMP1090_PATH = "/usr/bin/dump1090-fa"
-JSON_DIR = "/home/alex/dump1090-json"
-JSON_FILE = f"{JSON_DIR}/aircraft.json"
 
-class ADSBApp(App):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.dump_process = None
-        self.label = None
+def start_dump1090():
+    # Start dump1090-fa in background and write JSON
+    return subprocess.Popen([
+        "sudo", DUMP1090_PATH,
+        "--net",
+        "--gain", "-10",
+        "--write-json", "/home/alex/dump1090-json"
+    ])
 
-    def start_dump1090(self):
-        # Start dump1090-fa in background and write JSON
-        self.dump_process = subprocess.Popen([
-            "sudo", DUMP1090_PATH,
-            "--net",
-            "--gain", "-10",
-            "--write-json", JSON_DIR
-        ])
-
-    def stop_dump1090(self):
-        if self.dump_process:
-            self.dump_process.terminate()
-            self.dump_process.wait()
-
-    def build(self):
-        self.label = Label(text="Starting ADS-B...", font_size='20sp')
-        self.start_dump1090()
-        Clock.schedule_interval(self.update_display, 2)
-        return self.label
-
-    def update_display(self, dt):
+def parse_and_save_aircraft():
+    while True:
         try:
-            with open(JSON_FILE, 'r') as f:
+            with open(JSON_INPUT_FILE, "r") as f:
                 data = json.load(f)
 
             aircraft_list = data.get("aircraft", [])
-            if not aircraft_list:
-                self.label.text = "No aircraft detected."
-            else:
-                display_text = f"Aircraft detected: {len(aircraft_list)}\n\n"
+            output = []
 
-                for ac in aircraft_list[:5]:  # Limit to 5 entries
-                    flight = ac.get("flight", "").strip()
-                    if not flight:
-                        flight = "Unknown Flight"
+            for ac in aircraft_list:
+                # Filter only aircraft with position data
+                if ac.get("lat") is not None and ac.get("lon") is not None:
+                    entry = {
+                        "hex": ac.get("hex", "N/A"),
+                        "lat": ac.get("lat"),
+                        "lon": ac.get("lon"),
+                        "alt_baro": ac.get("altitude") or ac.get("alt_baro", None),
+                        "gs": ac.get("gs", None),
+                        "flight": ac.get("flight", "").strip(),
+                        "seen": round(ac.get("seen", 0), 1)
+                    }
+                    output.append(entry)
 
-                    altitude = ac.get("altitude")
-                    if altitude is None:
-                        altitude_str = "Unknown Altitude"
-                    else:
-                        altitude_str = f"{altitude} ft"
-
-                    display_text += f"{flight} @ {altitude_str}\n"
-
-                self.label.text = display_text
+            # Save to output file in your JSON format
+            with open(JSON_OUTPUT_FILE, "w") as out:
+                json.dump(output, out, indent=2)
 
         except Exception as e:
-            self.label.text = f"Error fetching data:\n{e}"
+            print(f"Error: {e}")
 
-    def on_stop(self):
-        self.stop_dump1090()
+        sleep(2)
 
-if __name__ == '__main__':
-    ADSBApp().run()
+if __name__ == "__main__":
+    print("Starting dump1090-fa and logging aircraft data...")
+    process = start_dump1090()
+
+    try:
+        parse_and_save_aircraft()
+    except KeyboardInterrupt:
+        print("Stopping...")
+        process.terminate()
+        process.wait()
