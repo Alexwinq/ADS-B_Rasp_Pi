@@ -1,60 +1,75 @@
-import json
 import subprocess
+import threading
+import time
+import json
 import os
-from time import sleep
+import requests
 
-JSON_INPUT_FILE = "/home/alex/dump1090-json/aircraft.json"
-JSON_OUTPUT_FILE = "/home/alex/ADS-B_Rasp_Pi/json_output/test_output.json"
-DUMP1090_PATH = "/usr/bin/dump1090-fa"
+from kivy.app import App
+from kivy.uix.screenmanager import ScreenManager
+from screens.init_screen import InitScreen
+from screens.detect_ac_screen import DetectAircraftScreen  # You should have this
 
+# Start dump1090-fa in the background
 def start_dump1090():
-    # Start dump1090-fa in background and write JSON
-    return subprocess.Popen([
-        "sudo", DUMP1090_PATH,
-        "--net",
-        "--gain", "-10",
-        "--write-json", "/home/alex/dump1090-json"
-    ])
+    try:
+        print("Starting dump1090-fa...")
+        subprocess.Popen([
+            "/usr/bin/dump1090-fa",
+            "--quiet",
+            "--net",
+            "--write-json", "/home/alex/ADS-B_Rasp_Pi/json_output"
+        ])
+    except Exception as e:
+        print(f"Error starting dump1090-fa: {e}")
 
-def parse_and_save_aircraft():
+# Fetch aircraft from localhost and save to test_output.json
+def fetch_aircraft_loop():
+    url = "http://localhost:8080/data/aircraft.json"
+    output_file = "/home/alex/ADS-B_Rasp_Pi/json_output/test_output.json"
+
     while True:
         try:
-            with open(JSON_INPUT_FILE, "r") as f:
-                data = json.load(f)
+            response = requests.get(url, timeout=2)
+            data = response.json()
+            aircraft = data.get("aircraft", [])
 
-            aircraft_list = data.get("aircraft", [])
-            output = []
-
-            for ac in aircraft_list:
-                # Filter only aircraft with position data
-                if ac.get("lat") is not None and ac.get("lon") is not None:
-                    entry = {
-                        "hex": ac.get("hex", "N/A"),
-                        "lat": ac.get("lat"),
-                        "lon": ac.get("lon"),
-                        "alt_baro": ac.get("altitude") or ac.get("alt_baro", None),
-                        "gs": ac.get("gs", None),
+            results = []
+            for ac in aircraft:
+                if "lat" in ac and "lon" in ac:
+                    results.append({
+                        "hex": ac.get("hex", "unknown"),
+                        "lat": ac["lat"],
+                        "lon": ac["lon"],
+                        "alt_baro": ac.get("alt_baro", 0),
+                        "gs": ac.get("gs", 0),
                         "flight": ac.get("flight", "").strip(),
-                        "seen": round(ac.get("seen", 0), 1)
-                    }
-                    output.append(entry)
+                        "seen": ac.get("seen", 0)
+                    })
 
-            # Save to output file in your JSON format
-            with open(JSON_OUTPUT_FILE, "w") as out:
-                json.dump(output, out, indent=2)
+            with open(output_file, "w") as f:
+                json.dump(results, f, indent=2)
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"[fetch_aircraft_loop] Error: {e}")
 
-        sleep(2)
+        time.sleep(5)
 
-if __name__ == "__main__":
-    print("Starting dump1090-fa and logging aircraft data...")
-    process = start_dump1090()
 
-    try:
-        parse_and_save_aircraft()
-    except KeyboardInterrupt:
-        print("Stopping...")
-        process.terminate()
-        process.wait()
+class ADSBApp(App):
+    def build(self):
+        sm = ScreenManager()
+        sm.add_widget(InitScreen(name='init'))
+        sm.add_widget(DetectAircraftScreen(name='detect_ac'))
+        return sm
+
+
+if __name__ == '__main__':
+    # Start dump1090-fa
+    start_dump1090()
+
+    # Start background aircraft fetching thread
+    threading.Thread(target=fetch_aircraft_loop, daemon=True).start()
+
+    # Run Kivy app
+    ADSBApp().run()
