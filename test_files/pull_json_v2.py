@@ -1,88 +1,86 @@
 import json
-import time
-import os
+import subprocess
+from kivy.app import App
+from kivy.uix.label import Label
+from kivy.clock import Clock
 
-#AIRCRAFT_FILE = "/home/alex/dump1090-json/aircraft.json"
-AIRCRAFT_FILE = "/run/dump1090-fa/aircraft.json"
+# Paths
+DUMP1090_PATH = "/usr/bin/dump1090-fa"
+JSON_DIR = "/home/alex/dump1090-json"
+JSON_FILE = f"{JSON_DIR}/aircraft.json"
 
-# Optional: map hex to tail numbers
-hex_to_tail = {
-    "a7302f": "N12345",
-    "ab4af1": "N67890",
-}
+class ADSBApp(App):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.dump_process = None
+        self.label = None
 
-OUTPUT_DIR = "../json_output"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "aircraft_status.json")
+    def start_dump1090(self):
+        # Launch dump1090-fa and write JSON to target dir
+        self.dump_process = subprocess.Popen([
+            "sudo", DUMP1090_PATH,
+            "--net",
+            "--gain", "-10",
+            "--write-json", JSON_DIR
+        ])
 
-def load_aircraft_with_position():
-    if not os.path.exists(AIRCRAFT_FILE):
-        return []
+    def stop_dump1090(self):
+        if self.dump_process:
+            self.dump_process.terminate()
+            self.dump_process.wait()
 
-    with open(AIRCRAFT_FILE, "r") as f:
+    def build(self):
+        self.label = Label(text="Starting ADS-B...", font_size='16sp')
+        self.start_dump1090()
+        Clock.schedule_interval(self.update_display, 2)
+        return self.label
+
+    def update_display(self, dt):
         try:
-            data = json.load(f)
-        except json.JSONDecodeError:
-            return []
+            with open(JSON_FILE, 'r') as f:
+                data = json.load(f)
 
-    aircraft = data.get("aircraft", [])
-    positioned = [ac for ac in aircraft if "lat" in ac and "lon" in ac]
-    return positioned
+            aircraft_list = data.get("aircraft", [])
+            if not aircraft_list:
+                self.label.text = "No aircraft detected."
+                return
 
-def summarize_aircraft(ac):
-    hexid = ac.get("hex", "???")
-    lat = ac.get("lat", "N/A")
-    lon = ac.get("lon", "N/A")
-    alt = ac.get("alt_baro", "N/A")
-    speed = ac.get("gs", "N/A")
-    flight = ac.get("flight", "").strip()
-    seen = ac.get("seen", 0)
+            display_text = f"Aircraft detected: {len(aircraft_list)}\n\n"
 
-    tail = hex_to_tail.get(hexid.lower(), "Unknown")
+            for ac in aircraft_list[:5]:  # Show first 5 aircraft
+                hexid = ac.get("hex", "N/A").upper()
+                tail = ac.get("r", "N/A")
+                flight = ac.get("flight", "").strip() or "Unknown"
+                alt = ac.get("altitude")
+                alt = f"{alt} ft" if alt else "Unknown"
 
-    return {
-        "ICAO Hex": hexid,
-        "Tail #": tail,
-        "Flight": flight,
-        "Altitude (ft)": alt,
-        "Speed (knots)": speed,
-        "Latitude": lat,
-        "Longitude": lon,
-        "Last Seen (sec ago)": round(seen, 1)
-    }
+                speed = ac.get("gs")
+                speed = f"{speed:.0f} knots" if speed else "Unknown"
 
-def save_aircraft_to_json(aircraft):
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    summarized = [summarize_aircraft(ac) for ac in aircraft]
+                lat = ac.get("lat", "Unknown")
+                lon = ac.get("lon", "Unknown")
 
-    data = {
-        "timestamp": time.time(),
-        "total_aircraft": len(summarized),
-        "aircraft": summarized
-    }
+                seen = ac.get("seen", 0)
+                seen_str = f"{round(seen, 1)} sec ago"
 
-    with open(OUTPUT_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+                display_text += (
+                    f"ICAO Hex: {hexid}\n"
+                    f"Tail #: {tail}\n"
+                    f"Flight: {flight}\n"
+                    f"Altitude: {alt}\n"
+                    f"Speed: {speed}\n"
+                    f"Lat: {lat}, Lon: {lon}\n"
+                    f"Last Seen: {seen_str}\n"
+                    f"{'-'*30}\n"
+                )
 
-def display_aircraft(ac_summary):
-    print(f"--- Aircraft Detected ---")
-    for key, value in ac_summary.items():
-        print(f"  {key:17}: {value}")
-    print(f"-------------------------")
+            self.label.text = display_text
 
-def main():
-    while True:
-        aircraft = load_aircraft_with_position()
+        except Exception as e:
+            self.label.text = f"Error fetching data:\n{e}"
 
-        if not aircraft:
-            print("No aircraft with position found.\n")
-        else:
-            summaries = [summarize_aircraft(ac) for ac in aircraft]
-            print(f"\nDetected {len(summaries)} aircraft with position.")
-            for summary in summaries:
-                display_aircraft(summary)
+    def on_stop(self):
+        self.stop_dump1090()
 
-        save_aircraft_to_json(aircraft)
-        time.sleep(5)
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    ADSBApp().run()
