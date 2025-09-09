@@ -1,13 +1,12 @@
 import json
 import subprocess
-import threading
-import time
 from kivy.app import App
 from kivy.uix.label import Label
 from kivy.clock import Clock
 
+# Adjust these paths as needed
 DUMP1090_PATH = "/usr/bin/dump1090-fa"
-JSON_DIR = "/home/alex/dump1090-json"  # Make sure this folder exists and dump1090-fa has write permission
+JSON_DIR = "/home/alex/dump1090-json"
 JSON_FILE = f"{JSON_DIR}/aircraft.json"
 
 class ADSBApp(App):
@@ -17,13 +16,12 @@ class ADSBApp(App):
         self.label = None
 
     def start_dump1090(self):
-        # Start dump1090-fa in background writing JSON
-        # Using sudo may be required depending on your setup
+        # Start dump1090-fa in background and write JSON
         self.dump_process = subprocess.Popen([
             "sudo", DUMP1090_PATH,
             "--net",
-            "--write-json", JSON_DIR,
-            "--gain", "-10"
+            "--gain", "-10",
+            "--write-json", JSON_DIR
         ])
 
     def stop_dump1090(self):
@@ -34,8 +32,6 @@ class ADSBApp(App):
     def build(self):
         self.label = Label(text="Starting ADS-B...", font_size='20sp')
         self.start_dump1090()
-
-        # Schedule periodic update every 2 seconds
         Clock.schedule_interval(self.update_display, 2)
         return self.label
 
@@ -43,27 +39,32 @@ class ADSBApp(App):
         try:
             with open(JSON_FILE, 'r') as f:
                 data = json.load(f)
+
             aircraft_list = data.get("aircraft", [])
             if not aircraft_list:
                 self.label.text = "No aircraft detected."
             else:
-                display_text = "Aircraft detected:\n"
-                for ac in aircraft_list[:10]:
-                    flight = ac.get("flight")
+                display_text = f"Aircraft detected: {len(aircraft_list)}\n\n"
+
+                for ac in aircraft_list[:5]:  # Limit to 5 entries
+                    flight = ac.get("flight", "").strip()
                     if not flight:
                         flight = "Unknown Flight"
+
                     altitude = ac.get("altitude")
                     if altitude is None:
-                        altitude = "Unknown Altitude"
+                        altitude_str = "Unknown Altitude"
                     else:
-                        altitude = f"{altitude} ft"
-                    display_text += f"{flight} @ {altitude}\n"
+                        altitude_str = f"{altitude} ft"
+
+                    display_text += f"{flight} @ {altitude_str}\n"
+
                 self.label.text = display_text
+
         except Exception as e:
             self.label.text = f"Error fetching data:\n{e}"
 
     def on_stop(self):
-        # Stop dump1090 process on app exit
         self.stop_dump1090()
 
 if __name__ == '__main__':
